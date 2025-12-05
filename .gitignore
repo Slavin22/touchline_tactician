@@ -7,6 +7,7 @@ __pycache__/
 env/
 venv/
 ENV/
+tt_env/
 build/
 develop-eggs/
 dist/
@@ -37,4 +38,11 @@ wheels/
 # OS
 .DS_Store
 Thumbs.db
+
+# Project specific
+storage/plans/*.json
+storage/reports/*.md
+storage/reports/*.txt
+.specstory/
+.cursor/
 
