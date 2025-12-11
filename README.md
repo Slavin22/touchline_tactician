@@ -37,10 +37,24 @@ export ANTHROPIC_API_KEY=your_api_key_here
 
 ## Usage
 
-Run the CLI application:
+### Quick Start
+
+1. Activate the virtual environment:
+```bash
+source tt_env/bin/activate
+```
+
+2. Set your API key:
+```bash
+export ANTHROPIC_API_KEY=your_api_key_here
+```
+
+3. Run the CLI application:
 ```bash
 python main.py
 ```
+
+The application will start in interactive mode. See `USER_GUIDE.md` for detailed usage instructions and `TESTING.md` for testing guidance.
 
 ### Available Commands
 

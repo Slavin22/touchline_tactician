@@ -30,6 +30,7 @@ class TacticalPlanFileTools(Toolkit):
         super().__init__(
             name="tactical_plan_files",
             tools=[
+                self.create_plan,
                 self.save_plan,
                 self.load_plan,
                 self.list_plans,
@@ -37,6 +38,61 @@ class TacticalPlanFileTools(Toolkit):
             ],
             **kwargs,
         )
+    
+    def create_plan(self, plan_data: dict, filename: Optional[str] = None) -> str:
+        """
+        Create and save a tactical plan from a dictionary.
+        
+        Args:
+            plan_data: Dictionary containing plan data with keys:
+                - name: Plan name (required)
+                - formation: Formation string (required)
+                - players: List of player dictionaries (required)
+                - zones: Dictionary of zones (optional)
+                - pressing_triggers: List of pressing triggers (optional)
+                - transition_instructions: Dictionary of transition instructions (optional)
+                Note: plan_id will be auto-generated if not provided
+            filename: Optional filename. If not provided, uses plan_id.json
+        
+        Returns:
+            Path to the saved file
+        """
+        try:
+            # Remove plan_id from plan_data if it's not a valid UUID (e.g., if it's a string like "433-standard-001")
+            # The TacticalPlan model will auto-generate a UUID if plan_id is not provided
+            if 'plan_id' in plan_data:
+                try:
+                    from uuid import UUID
+                    UUID(plan_data['plan_id'])  # Validate it's a UUID
+                except (ValueError, TypeError):
+                    # Not a valid UUID, remove it so one gets auto-generated
+                    del plan_data['plan_id']
+            
+            # Validate that we have exactly 11 players before creating the plan
+            if 'players' in plan_data:
+                player_count = len(plan_data['players'])
+                if player_count != 11:
+                    logger.warning(
+                        f"Plan has {player_count} players instead of 11. "
+                        f"A tactical plan should have exactly 11 players (1 goalkeeper + 10 outfield players)."
+                    )
+            
+            # Create TacticalPlan from dictionary
+            plan = TacticalPlan(**plan_data)
+            
+            # Double-check player count after creation
+            if len(plan.players) != 11:
+                logger.warning(
+                    f"Plan '{plan.name}' has {len(plan.players)} players instead of 11. "
+                    f"This may cause visualization issues."
+                )
+            
+            # Save the plan
+            return self.save_plan(plan, filename)
+        
+        except Exception as e:
+            logger.error(f"Error creating plan: {e}")
+            raise
     
     def save_plan(self, plan: TacticalPlan, filename: Optional[str] = None) -> str:
         """
@@ -150,4 +206,3 @@ class TacticalPlanFileTools(Toolkit):
         except Exception as e:
             logger.error(f"Error deleting plan: {e}")
             raise
-

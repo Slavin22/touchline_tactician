@@ -2,7 +2,6 @@
 from agno.agent import Agent
 from agno.models.anthropic import Claude
 from agno.team import Team
-from agno.tools.reasoning import ReasoningTools
 
 from .editor import create_editor_agent
 from .plan_builder import create_plan_builder_agent
@@ -34,35 +33,32 @@ def create_orchestrator_team(plans_directory: str = "storage/plans", reports_dir
     orchestrator = Agent(
         name="Orchestrator",
         role="Coordinator",
-        model=Claude(id="claude-sonnet-4-20250514"),
-        tools=[
-            ReasoningTools(add_instructions=True),
-        ],
+        # Use Haiku for coordination - mostly routing tasks, doesn't need Sonnet 4's capabilities
+        # Haiku has a max output of 4096 tokens, so we set max_tokens accordingly
+        model=Claude(id="claude-3-haiku-20240307", max_tokens=4096),
         instructions="""
-        You are the orchestrator for the Touchline Tactician system. You coordinate
-        a team of specialized agents to help soccer coaches create, visualize, edit,
-        and document tactical plans.
+        You coordinate specialized agents for tactical planning.
         
-        Your team members are:
-        1. **PlanBuilder** - Creates tactical plans from structured inputs
-        2. **Visualizer** - Generates ASCII tactical board diagrams
-        3. **Editor** - Modifies existing tactical plans based on commands
-        4. **ReportGenerator** - Creates markdown reports (executive, coach, player)
+        Team capabilities:
+        - PlanBuilder: Creates tactical plans
+        - Visualizer: ASCII art visualizations only (visualize_plan function)
+        - Editor: Modifies existing plans
+        - ReportGenerator: HTML/SVG visualizations (generate_html_visualization, save_html_visualization) AND markdown reports
         
-        When a user makes a request:
-        1. Determine which agent(s) should handle the request
-        2. Delegate the task to the appropriate agent(s)
-        3. Coordinate multi-step workflows (e.g., create plan then visualize)
-        4. Return clear, helpful responses to the user
+        NEW PLAN WORKFLOW:
+        1. Interview: Ask all 13 questions at once (plan name, team name, formation, style, key players, strengths, weaknesses ×2 for both teams). Wait for all answers.
+        2. Build: Extract info, delegate to PlanBuilder with structured data.
+        3. Present: Show plan description (formation, tactics, pressing, transitions), ask for feedback.
+        4. Feedback: If changes → Editor → present again. If confirmed → proceed.
+        5. Visualize: Delegate to Visualizer for ASCII board, or ReportGenerator for HTML/SVG visualizations.
+        6. Report: Delegate to ReportGenerator with plan_id and visualization.
         
-        Common user requests:
-        - "Create a new tactical plan" → Delegate to PlanBuilder
-        - "Show me the board for plan X" → Delegate to Visualizer
-        - "Edit plan X: move player 10 to LW" → Delegate to Editor
-        - "Generate reports for plan X" → Delegate to ReportGenerator
-        - "Create a plan and show the board" → Delegate to PlanBuilder, then Visualizer
-        
-        Always be helpful and guide users through the tactical planning process.
+        ROUTING RULES:
+        - ASCII visualization requests → Visualizer agent
+        - HTML/SVG visualization requests → ReportGenerator agent (has generate_html_visualization, save_html_visualization functions)
+        - Edit instructions → Editor agent
+        - Generate report → ReportGenerator agent
+        - Create new plan → PlanBuilder agent
         """,
         markdown=True,
     )
@@ -77,10 +73,18 @@ def create_orchestrator_team(plans_directory: str = "storage/plans", reports_dir
             editor,
             report_generator,
         ],
-        model=Claude(id="claude-sonnet-4-20250514"),
+        # Use Haiku for team coordination - just routing between agents
+        # Haiku has a max output of 4096 tokens, so we set max_tokens accordingly
+        model=Claude(id="claude-3-haiku-20240307", max_tokens=4096),
         instructions="""
         You are the Touchline Tactician team, helping soccer coaches create and manage
         tactical plans. Work together to provide the best possible assistance.
+        
+        Agent capabilities:
+        - Visualizer: ASCII art visualizations only
+        - ReportGenerator: HTML/SVG visualizations and markdown reports
+        - PlanBuilder: Creates new tactical plans
+        - Editor: Modifies existing plans
         """,
         markdown=True,
     )

@@ -1,10 +1,12 @@
 """Editor Agent - Modifies tactical plans based on commands."""
 from agno.agent import Agent
 from agno.models.anthropic import Claude
+from agno.tools.function import Function
 from agno.tools.reasoning import ReasoningTools
 
 from tools.file_operations import TacticalPlanFileTools
 from tools.tactical_validator import TacticalValidatorTools
+from utils.board_generator import generate_ascii_board
 
 
 def create_editor_agent(plans_directory: str = "storage/plans") -> Agent:
@@ -19,6 +21,20 @@ def create_editor_agent(plans_directory: str = "storage/plans") -> Agent:
     Returns:
         Configured Editor Agent
     """
+    # Create file tools instance for the visualize function
+    file_tools = TacticalPlanFileTools(plans_directory=plans_directory)
+    
+    def visualize_plan(plan_id: str) -> str:
+        """Visualize a tactical plan as an ASCII board."""
+        plan = file_tools.load_plan(plan_id)
+        return generate_ascii_board(plan)
+    
+    visualize_function = Function(
+        name="visualize_plan",
+        entrypoint=visualize_plan,
+        description="Generate an ASCII tactical board visualization from a tactical plan",
+    )
+    
     agent = Agent(
         name="Editor",
         role="Plan Modifier",
@@ -26,29 +42,15 @@ def create_editor_agent(plans_directory: str = "storage/plans") -> Agent:
         tools=[
             ReasoningTools(add_instructions=True),
             TacticalPlanFileTools(plans_directory=plans_directory),
-            TacticalValidatorTools(),
+            TacticalValidatorTools(plans_directory=plans_directory),
+            visualize_function,
         ],
         instructions="""
-        You are a tactical plan editor. Your role is to modify existing tactical plans
-        based on edit commands from coaches.
+        Modify tactical plans from free-text instructions (e.g., "move player 10 to left wing", "change formation to 4-4-2").
         
-        Common edit commands include:
-        - "move player X to [position]" - Move a player to a new position
-        - "change formation to X-Y-Z" - Change the formation
-        - "update player X zone to ..." - Update a player's zone
-        - "add pressing trigger ..." - Add a pressing trigger
-        - "update player X responsibilities ..." - Update player responsibilities
+        Process: 1) Find plan (use provided ID, or list_plans for most recent, or ask if unclear), 2) Load plan, 3) Parse ALL changes, 4) Implement together, 5) Validate, 6) Save if valid, 7) Return summary + visualization.
         
-        When processing an edit:
-        1. Load the plan using load_plan
-        2. Parse the edit command to understand what needs to change
-        3. Make the appropriate modifications to the plan object
-        4. Validate the changes using the validation tools
-        5. If valid, save the updated plan using save_plan
-        6. Return confirmation of the changes
-        
-        Always validate changes before saving. If validation fails, explain why
-        and suggest alternatives.
+        Always: Process all changes together, save automatically, show updated board, ask for clarification if ambiguous.
         """,
         markdown=True,
     )

@@ -2,7 +2,6 @@
 from agno.agent import Agent
 from agno.models.anthropic import Claude
 from agno.tools.function import Function
-from agno.tools.reasoning import ReasoningTools
 
 from tools.file_operations import TacticalPlanFileTools
 from utils.board_generator import generate_ascii_board
@@ -45,28 +44,23 @@ def create_visualizer_agent(plans_directory: str = "storage/plans") -> Agent:
     agent = Agent(
         name="Visualizer",
         role="Board Generator",
-        model=Claude(id="claude-sonnet-4-20250514"),
+        # Use Haiku for simple visualization task - much cheaper than Sonnet 4
+        # Haiku has a max output of 4096 tokens, so we set max_tokens accordingly
+        model=Claude(id="claude-3-haiku-20240307", max_tokens=4096),
         tools=[
-            ReasoningTools(add_instructions=True),
             TacticalPlanFileTools(plans_directory=plans_directory),
             visualize_function,
         ],
         instructions="""
-        You are a tactical board visualization specialist. Your role is to generate
-        ASCII representations of tactical plans.
+        Generate ASCII tactical board visualizations. 
         
         When asked to visualize a plan:
-        1. Use the visualize_plan function with the plan filename or plan_id
-        2. The function will load the plan and generate the ASCII board
-        3. Display the result to the user
+        1. Use the visualize_plan function with the plan_id/filename
+        2. The function returns raw ASCII art - output it EXACTLY as returned
+        3. Do NOT describe, interpret, or summarize the visualization
+        4. Output the complete ASCII art string directly so it displays properly in the terminal
         
-        The ASCII board shows:
-        - Field boundaries
-        - Player positions (by number)
-        - Formation lines
-        - Player legend
-        
-        Always display the board clearly and include the plan name and formation.
+        The ASCII output includes the field, player positions, and legend - output it verbatim.
         """,
         markdown=True,
     )
